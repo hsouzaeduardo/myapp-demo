@@ -1,0 +1,6 @@
+fastapi==0.111.0
+openai==1.26.0
+pydantic==2.7.1
+qdrant_client==1.9.1
+uvicorn==0.29.0
+requests==2.31.0

@@ -1,0 +1,619 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "subscriptionId": {
+            "type": "String"
+        },
+        "resourceGroupName": {
+            "type": "String"
+        },
+        "location": {
+            "type": "String"
+        },
+        "deploymentName": {
+            "defaultValue": "[deployment().name]",
+            "type": "String"
+        },
+        "appSpaceName": {
+            "defaultValue": "[format('appspace-{0}', uniqueString(resourceGroup().id))]",
+            "type": "String"
+        },
+        "appSpaceFriendlyName": {
+            "type": "String"
+        },
+        "workspaceName": {
+            "defaultValue": "[format('workspace{0}', uniqueString(resourceGroup().id, deployment().name))]",
+            "type": "String"
+        },
+        "workspaceSku": {
+            "defaultValue": {
+                "name": "PerGB2018"
+            },
+            "type": "Object"
+        },
+        "appInsightsName": {
+            "defaultValue": "[format('app-insights-{0}', uniqueString(resourceGroup().id))]",
+            "type": "String"
+        },
+        "appInsightsApplicationType": {
+            "defaultValue": "web",
+            "type": "String"
+        },
+        "appInsightsRequestSource": {
+            "defaultValue": "IbizaAIExtension",
+            "type": "String"
+        },
+        "staticSiteName": {
+            "defaultValue": "[format('app-{0}', uniqueString(resourceGroup().id))]",
+            "type": "String"
+        },
+        "staticSiteSku": {
+            "defaultValue": "Standard",
+            "type": "String"
+        },
+        "staticSiteSkuCode": {
+            "defaultValue": "Standard",
+            "type": "String"
+        },
+        "staticSiteAppLocation": {
+            "defaultValue": "./client",
+            "type": "String"
+        },
+        "staticSiteApiLocation": {
+            "defaultValue": "",
+            "type": "String"
+        },
+        "staticSiteAppArtifactLocation": {
+            "defaultValue": "build",
+            "type": "String"
+        },
+        "repoUrl": {
+            "type": "String"
+        },
+        "branch": {
+            "type": "String"
+        },
+        "repositoryToken": {
+            "type": "SecureString"
+        },
+        "virtualNetworkName": {
+            "defaultValue": "[format('vnet{0}', uniqueString(resourceGroup().id, deployment().name))]",
+            "type": "String"
+        },
+        "subnetName": {
+            "defaultValue": "[format('subnet{0}', uniqueString(resourceGroup().id, deployment().name))]",
+            "type": "String"
+        },
+        "containerAppEnvironmentName": {
+            "defaultValue": "[format('container-app-environment-{0}', uniqueString(resourceGroup().id))]",
+            "type": "String"
+        },
+        "containerAppName": {
+            "defaultValue": "[format('container-app-{0}', uniqueString(resourceGroup().id))]",
+            "type": "String"
+        },
+        "containerAppDatabaseName": {
+            "defaultValue": "[format('container-app-db-{0}', uniqueString(resourceGroup().id))]",
+            "type": "String"
+        },
+        "containerAppActiveRevisionsMode": {
+            "defaultValue": "Single",
+            "type": "String"
+        },
+        "containerAppIngressTargetPort": {
+            "defaultValue": "80",
+            "type": "String"
+        },
+        "oidcUserIdentity": {
+            "defaultValue": "[concat(parameters('containerAppName'), '-','oidcUserIdentity', '-msi')]",
+            "type": "String"
+        },
+        "oidcRbacNameToResourceGroup": {
+            "defaultValue": "[guid(resourceGroup().id)]",
+            "type": "String"
+        },
+        "federatedIdentityCredentialsSubject": {
+            "type": "String"
+        }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.App/spaces",
+            "apiVersion": "2023-11-02-preview",
+            "name": "[parameters('appSpaceName')]",
+            "location": "centralus",
+            "properties": {
+                "friendlyName": "[parameters('appSpaceFriendlyName')]",
+                "primaryResourceId": "[concat('/subscriptions/', parameters('subscriptionId'),'/resourceGroups/', parameters('resourceGroupName'),'/providers/Microsoft.App/spaces/', parameters('appSpaceName'), '/spaceResources/', parameters('staticSiteName'))]"
+            },
+            "resources": [
+                {
+                    "type": "spaceResources",
+                    "apiVersion": "2023-11-02-preview",
+                    "name": "[parameters('staticSiteName')]",
+                    "location": "centralus",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.App/spaces', parameters('appSpaceName'))]"
+                    ],
+                    "properties": {
+                        "resourceId": "[concat('/subscriptions/', parameters('subscriptionId'),'/resourceGroups/', parameters('resourceGroupName'), '/providers/Microsoft.Web/staticSites/', parameters('staticSiteName'))]",
+                        "location": "[parameters('location')]",
+                        "friendlyName": "RAG Frontend",
+                        "deployment": {
+                            "id": "[concat('/subscriptions/', parameters('subscriptionId'),'/resourcegroups/',  parameters('resourceGroupName'),'/providers/Microsoft.Resources/deployments/', parameters('deploymentName'))]",
+                            "provisioningState": "InProgress"
+                        },
+                        "repo": {
+                            "url": "[parameters('repoUrl')]",
+                            "branch": "[parameters('branch')]"
+                        },
+                        "metaData": {
+                            "sku": "Standard",
+                            "type": "Microsoft.Web/staticSites",
+                            "appLocation": "[parameters('staticSiteAppLocation')]"
+                        }
+                    }
+                },
+                {
+                    "type": "spaceResources",
+                    "apiVersion": "2023-11-02-preview",
+                    "name": "[parameters('appInsightsName')]",
+                    "location": "centralus",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.App/spaces', parameters('appSpaceName'))]"
+                    ],
+                    "properties": {
+                        "resourceId": "[concat('/subscriptions/', parameters('subscriptionId'),'/resourceGroups/', parameters('resourceGroupName'), '/providers/Microsoft.Insights/components/', parameters('appInsightsName'))]",
+                        "location": "[parameters('location')]",
+                        "friendlyName": "[parameters('appInsightsName')]",
+                        "deployment": {
+                            "id": "[concat('/subscriptions/', parameters('subscriptionId'),'/resourcegroups/',  parameters('resourceGroupName'),'/providers/Microsoft.Resources/deployments/', parameters('deploymentName'))]",
+                            "provisioningState": "InProgress"
+                        },
+                        "metaData": {
+                            "type": "Microsoft.Insights/components"
+                        }
+                    }
+                },
+                {
+                    "type": "spaceResources",
+                    "apiVersion": "2023-11-02-preview",
+                    "name": "[parameters('workspaceName')]",
+                    "location": "centralus",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.App/spaces', parameters('appSpaceName'))]"
+                    ],
+                    "properties": {
+                        "resourceId": "[concat('/subscriptions/', parameters('subscriptionId'),'/resourceGroups/', parameters('resourceGroupName'),'/providers/Microsoft.OperationalInsights/workspaces/', parameters('workspaceName'))]",
+                        "location": "[parameters('location')]",
+                        "friendlyName": "[parameters('workspaceName')]",
+                        "deployment": {
+                            "id": "[concat('/subscriptions/', parameters('subscriptionId'),'/resourcegroups/',  parameters('resourceGroupName'),'/providers/Microsoft.Resources/deployments/', parameters('deploymentName'))]",
+                            "provisioningState": "InProgress"
+                        },
+                        "metaData": {
+                            "type": "Microsoft.OperationalInsights/workspaces"
+                        }
+                    }
+                },
+                {
+                    "type": "spaceResources",
+                    "apiVersion": "2023-11-02-preview",
+                    "name": "[parameters('oidcUserIdentity')]",
+                    "location": "centralus",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.App/spaces', parameters('appSpaceName'))]"
+                    ],
+                    "properties": {
+                        "resourceId": "[concat('/subscriptions/', parameters('subscriptionId'),'/resourceGroups/', parameters('resourceGroupName'),'/providers/Microsoft.ManagedIdentity/userAssignedIdentities/', parameters('oidcUserIdentity'))]",
+                        "location": "[parameters('location')]",
+                        "friendlyName": "[parameters('oidcUserIdentity')]",
+                        "deployment": {
+                            "id": "[concat('/subscriptions/', parameters('subscriptionId'),'/resourcegroups/',  parameters('resourceGroupName'),'/providers/Microsoft.Resources/deployments/', parameters('deploymentName'))]",
+                            "provisioningState": "InProgress"
+                        },
+                        "metaData": {
+                            "type": "Microsoft.ManagedIdentity/userAssignedIdentities"
+                        }
+                    }
+                },
+                {
+                    "type": "spaceResources",
+                    "apiVersion": "2023-11-02-preview",
+                    "name": "[parameters('containerAppEnvironmentName')]",
+                    "location": "centralus",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.App/spaces', parameters('appSpaceName'))]"
+                    ],
+                    "properties": {
+                        "resourceId": "[concat('/subscriptions/', parameters('subscriptionId'),'/resourceGroups/', parameters('resourceGroupName'),'/providers/Microsoft.App/managedEnvironments/', parameters('containerAppEnvironmentName'))]",
+                        "location": "[parameters('location')]",
+                        "friendlyName": "[parameters('containerAppEnvironmentName')]",
+                        "deployment": {
+                            "id": "[concat('/subscriptions/', parameters('subscriptionId'),'/resourcegroups/',  parameters('resourceGroupName'),'/providers/Microsoft.Resources/deployments/', parameters('deploymentName'))]",
+                            "provisioningState": "InProgress"
+                        },
+                        "metaData": {
+                            "type": "Microsoft.App/managedEnvironments"
+                        }
+                    }
+                },
+                {
+                    "type": "spaceResources",
+                    "apiVersion": "2023-11-02-preview",
+                    "name": "[parameters('containerAppName')]",
+                    "location": "centralus",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.App/spaces', parameters('appSpaceName'))]"
+                    ],
+                    "properties": {
+                        "resourceId": "[concat('/subscriptions/', parameters('subscriptionId'),'/resourceGroups/', parameters('resourceGroupName'),'/providers/Microsoft.App/containerapps/', parameters('containerAppName'))]",
+                        "location": "[parameters('location')]",
+                        "friendlyName": "RAG Backend",
+                        "deployment": {
+                            "id": "[concat('/subscriptions/', parameters('subscriptionId'),'/resourcegroups/',  parameters('resourceGroupName'),'/providers/Microsoft.Resources/deployments/', parameters('deploymentName'))]",
+                            "provisioningState": "InProgress"
+                        },
+                        "repo": {
+                            "url": "[parameters('repoUrl')]",
+                            "branch": "[parameters('branch')]"
+                        },
+                        "metaData": {
+                            "type": "Microsoft.App/containerapps",
+                            "serviceIds": "[string(array(concat('/subscriptions/', parameters('subscriptionId'),'/resourceGroups/', parameters('resourceGroupName'),'/providers/Microsoft.App/containerapps/', parameters('containerAppDatabaseName'))))]"
+                        }
+                    }
+                },
+                {
+                    "type": "spaceResources",
+                    "apiVersion": "2023-11-02-preview",
+                    "name": "[parameters('containerAppDatabaseName')]",
+                    "location": "centralus",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.App/spaces', parameters('appSpaceName'))]"
+                    ],
+                    "properties": {
+                        "resourceId": "[concat('/subscriptions/', parameters('subscriptionId'),'/resourceGroups/', parameters('resourceGroupName'),'/providers/Microsoft.App/containerapps/', parameters('containerAppDatabaseName'))]",
+                        "location": "[parameters('location')]",
+                        "friendlyName": "Qdrant Database",
+                        "deployment": {
+                            "id": "[concat('/subscriptions/', parameters('subscriptionId'),'/resourcegroups/',  parameters('resourceGroupName'),'/providers/Microsoft.Resources/deployments/', parameters('deploymentName'))]",
+                            "provisioningState": "InProgress"
+                        },
+                        "repo": {
+                            "url": "",
+                            "branch": ""
+                        },
+                        "metaData": {
+                            "serviceType": "qdrant",
+                            "type": "Microsoft.App/containerapps"
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "type": "Microsoft.OperationalInsights/workspaces",
+            "apiVersion": "2020-08-01",
+            "name": "[parameters('workspaceName')]",
+            "location": "West US 2",
+            "dependsOn": [],
+            "properties": {
+                "sku": "[parameters('workspaceSku')]",
+                "retentionInDays": 30,
+                "workspaceCapping": {}
+            }
+        },
+        {
+            "type": "Microsoft.Insights/components",
+            "apiVersion": "2020-02-02-preview",
+            "name": "[parameters('appInsightsName')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[concat('Microsoft.OperationalInsights/workspaces/', parameters('workspaceName'))]"
+            ],
+            "properties": {
+                "ApplicationId": "[parameters('appInsightsName')]",
+                "Application_Type": "[parameters('appInsightsApplicationType')]",
+                "Flow_Type": "Redfield",
+                "Request_Source": "[parameters('appInsightsRequestSource')]",
+                "WorkspaceResourceId": "[concat('/subscriptions/', parameters('subscriptionId'),'/resourceGroups/', parameters('resourceGroupName'),'/providers/Microsoft.OperationalInsights/workspaces/', parameters('workspaceName'))]"
+            }
+        },
+        {
+            "type": "Microsoft.Web/staticSites",
+            "apiVersion": "2021-01-15",
+            "name": "[parameters('staticSiteName')]",
+            "location": "[parameters('location')]",
+            "sku": {
+                "Tier": "[parameters('staticSiteSku')]",
+                "Name": "[parameters('staticSiteSkuCode')]"
+            },
+            "properties": {
+                "name": "[parameters('staticSiteName')]",
+                "repositoryUrl": "[parameters('repoUrl')]",
+                "branch": "[parameters('branch')]",
+                "repositoryToken": "[parameters('repositoryToken')]",
+                "buildProperties": {
+                    "appLocation": "[parameters('staticSiteAppLocation')]",
+                    "apiLocation": "[parameters('staticSiteApiLocation')]",
+                    "appArtifactLocation": "[parameters('staticSiteAppArtifactLocation')]"
+                }
+            },
+            "resources": []
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2022-01-01",
+            "name": "[parameters('virtualNetworkName')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "10.0.0.0/16"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[parameters('subnetName')]",
+                        "properties": {
+                            "addressPrefix": "10.0.0.0/23",
+                            "delegations": [
+                                {
+                                    "name": "Microsoft.App.environments",
+                                    "id": "[concat('/subscriptions/', parameters('subscriptionId'), '/resourceGroup/', parameters('resourceGroupName'), '/providers/Microsoft.Network/availableDelegations/Microsoft.App.environments')]",
+                                    "type": "Microsoft.Network/availableDelegations",
+                                    "properties": {
+                                        "serviceName": "Microsoft.App/environments",
+                                        "actions": [
+                                            "Microsoft.Network/virtualNetworks/subnets/join/action"
+                                        ]
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.App/managedEnvironments",
+            "apiVersion": "2023-05-02-preview",
+            "name": "[parameters('containerAppEnvironmentName')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('virtualNetworkName'))]"
+            ],
+            "properties": {
+                "appLogsConfiguration": {
+                    "destination": "log-analytics",
+                    "logAnalyticsConfiguration": {
+                        "customerId": "[reference(concat('Microsoft.OperationalInsights/workspaces/', parameters('workspaceName')), '2020-08-01').customerId]",
+                        "sharedKey": "[listKeys(concat('Microsoft.OperationalInsights/workspaces/', parameters('workspaceName')), '2020-08-01').primarySharedKey]"
+                    }
+                },
+                "vnetConfiguration": {
+                    "infrastructureSubnetId": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworkName'), parameters('subnetName'))]",
+                    "internal": false
+                },
+                "workloadProfiles": [
+                    {
+                        "name": "Consumption",
+                        "workloadProfileType": "Consumption"
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.App/containerapps",
+            "apiVersion": "2023-05-02-preview",
+            "name": "[parameters('containerAppName')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[concat('Microsoft.App/managedEnvironments/', parameters('containerAppEnvironmentName'))]"
+            ],
+            "tags": {},
+            "kind": "containerapps",
+            "properties": {
+                "environmentId": "[concat('/subscriptions/', parameters('subscriptionId'),'/resourceGroups/', parameters('resourceGroupName'),'/providers/Microsoft.App/managedEnvironments/', parameters('containerAppEnvironmentName'))]",
+                "configuration": {
+                    "secrets": [],
+                    "registries": [],
+                    "activeRevisionsMode": "[parameters('containerAppActiveRevisionsMode')]",
+                    "ingress": {
+                        "external": true,
+                        "targetPort": "[parameters('containerAppIngressTargetPort')]",
+                        "stickySessions": {
+                            "affinity": "sticky"
+                        }
+                    }
+                },
+                "template": {
+                    "containers": [
+                        {
+                            "name": "simple-hello-world-container",
+                            "image": "mcr.microsoft.com/k8se/quickstart:latest",
+                            "command": [],
+                            "resources": {
+                                "cpu": 0.25,
+                                "memory": ".5Gi"
+                            }
+                        }
+                    ],
+                    "scale": {
+                        "minReplicas": 0
+                    }
+                },
+                "workloadProfileName": "Consumption"
+            },
+            "resources": [
+                {
+                    "type": "sourcecontrols",
+                    "apiVersion": "2023-04-01-preview",
+                    "name": "current",
+                    "dependsOn": [
+                        "[concat('Microsoft.App/containerapps/', parameters('containerAppName'))]",
+                        "[concat('Microsoft.Authorization/roleAssignments/', parameters('oidcRbacNameToResourceGroup'))]",
+                        "[concat('Microsoft.Resources/deployments/acadbconnection')]"
+                    ],
+                    "properties": {
+                        "repoUrl": "[parameters('repoUrl')]",
+                        "branch": "[parameters('branch')]",
+                        "gitHubActionConfiguration": {
+                            "githubPersonalAccessToken": "[parameters('repositoryToken')]",
+                            "azureCredentials": {
+                                "clientId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('oidcUserIdentity')), '2018-11-30').clientId]",
+                                "subscriptionId": "[subscription().subscriptionId]",
+                                "tenantId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('oidcUserIdentity')), '2018-11-30').tenantId]",
+                                "kind": "federated"
+                            },
+                            "image": "[concat('default/', parameters('containerAppName'))]",
+                            "contextPath": "./server"
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+            "apiVersion": "2018-11-30",
+            "name": "[parameters('oidcUserIdentity')]",
+            "location": "West US 2",
+            "dependsOn": [],
+            "properties": {},
+            "resources": [
+                {
+                    "type": "federatedIdentityCredentials",
+                    "apiVersion": "2022-01-31-preview",
+                    "name": "[uniqueString(resourceGroup().id)]",
+                    "dependsOn": [
+                        "[concat('Microsoft.ManagedIdentity/userAssignedIdentities/', parameters('oidcUserIdentity'))]"
+                    ],
+                    "properties": {
+                        "audiences": [
+                            "api://AzureADTokenExchange"
+                        ],
+                        "issuer": "https://token.actions.githubusercontent.com",
+                        "subject": "[parameters('federatedIdentityCredentialsSubject')]"
+                    }
+                }
+            ]
+        },
+        {
+            "type": "Microsoft.Authorization/roleAssignments",
+            "apiVersion": "2022-04-01",
+            "name": "[parameters('oidcRbacNameToResourceGroup')]",
+            "dependsOn": [
+                "[concat('Microsoft.ManagedIdentity/userAssignedIdentities/', parameters('oidcUserIdentity'))]"
+            ],
+            "properties": {
+                "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
+                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('oidcUserIdentity')), '2018-11-30').principalId]",
+                "principalType": "ServicePrincipal"
+            },
+            "scope": ""
+        },
+        {
+            "type": "Microsoft.App/containerapps",
+            "apiVersion": "2023-05-02-preview",
+            "name": "[parameters('containerAppDatabaseName')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[concat('Microsoft.App/managedEnvironments/', parameters('containerAppEnvironmentName'))]"
+            ],
+            "tags": {},
+            "kind": "containerapps",
+            "properties": {
+                "environmentId": "[concat('/subscriptions/', parameters('subscriptionId'),'/resourceGroups/', parameters('resourceGroupName'),'/providers/Microsoft.App/managedEnvironments/', parameters('containerAppEnvironmentName'))]",
+                "configuration": {
+                    "service": {
+                        "type": "qdrant"
+                    }
+                },
+                "workloadProfileName": "Consumption"
+            }
+        },
+        {
+            "type": "Microsoft.Web/staticSites/linkedBackends",
+            "apiVersion": "2022-09-01",
+            "name": "[concat(parameters('staticSiteName'), '/backend1')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/staticSites', parameters('staticSiteName'))]",
+                "[resourceId('Microsoft.App/containerapps', parameters('containerAppName'))]"
+            ],
+            "properties": {
+                "backendResourceId": "[concat('/subscriptions/', parameters('subscriptionId'),'/resourceGroups/', parameters('resourceGroupName'),'/providers/Microsoft.App/containerapps/', parameters('containerAppName'))]",
+                "region": "[parameters('location')]"
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2015-01-01",
+            "name": "acadbconnection",
+            "dependsOn": [
+                "[resourceId('Microsoft.App/containerapps', parameters('containerAppDatabaseName'))]",
+                "[resourceId('Microsoft.App/containerapps', parameters('containerAppName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {},
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {},
+                    "resources": [
+                        {
+                            "apiVersion": "2023-05-02-preview",
+                            "name": "[parameters('containerAppName')]",
+                            "type": "Microsoft.App/containerapps",
+                            "kind": "containerapps",
+                            "location": "[parameters('location')]",
+                            "properties": {
+                                "environmentId": "[concat('/subscriptions/', parameters('subscriptionId'),'/resourceGroups/', parameters('resourceGroupName'),'/providers/Microsoft.App/managedEnvironments/', parameters('containerAppEnvironmentName'))]",
+                                "configuration": {
+                                    "secrets": [],
+                                    "registries": [],
+                                    "activeRevisionsMode": "[parameters('containerAppActiveRevisionsMode')]",
+                                    "ingress": {
+                                        "external": true,
+                                        "targetPort": "[parameters('containerAppIngressTargetPort')]",
+                                        "stickySessions": {
+                                            "affinity": "sticky"
+                                        }
+                                    }
+                                },
+                                "template": {
+                                    "containers": [
+                                        {
+                                            "name": "simple-hello-world-container",
+                                            "image": "mcr.microsoft.com/k8se/quickstart:latest",
+                                            "command": [],
+                                            "resources": {
+                                                "cpu": 0.25,
+                                                "memory": ".5Gi"
+                                            }
+                                        }
+                                    ],
+                                    "scale": {
+                                        "minReplicas": 0
+                                    },
+                                    "serviceBinds": [
+                                        {
+                                            "serviceId": "[concat('/subscriptions/', parameters('subscriptionId'),'/resourceGroups/', parameters('resourceGroupName'),'/providers/Microsoft.App/containerapps/', parameters('containerAppDatabaseName'))]",
+                                            "name": "[parameters('containerAppDatabaseName')]",
+                                            "clientType": "none",
+                                            "customizedKeys": {}
+                                        }
+                                    ]
+                                },
+                                "workloadProfileName": "Consumption"
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}
